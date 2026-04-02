@@ -2,6 +2,7 @@ package com.example.demo.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "student_results")
@@ -24,6 +25,10 @@ public class StudentResult {
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt = LocalDateTime.now();
 
+    @Lob
+    @Column(name = "answer_details_json", columnDefinition = "LONGTEXT")
+    private String answerDetailsJson;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public User getStudent() { return student; }
@@ -34,6 +39,28 @@ public class StudentResult {
     public void setScore(Double score) { this.score = score; }
     public LocalDateTime getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(LocalDateTime submittedAt) { this.submittedAt = submittedAt; }
+    public String getAnswerDetailsJson() { return answerDetailsJson; }
+    public void setAnswerDetailsJson(String answerDetailsJson) { this.answerDetailsJson = answerDetailsJson; }
+
+    public List<ResultQuestionDetail> getAnswerDetails() {
+        return ResultSnapshotSupport.readDetails(answerDetailsJson);
+    }
+
+    public void setAnswerDetails(List<ResultQuestionDetail> details) {
+        this.answerDetailsJson = ResultSnapshotSupport.writeDetails(details);
+    }
+
+    public boolean hasAnswerDetails() {
+        return answerDetailsJson != null && !answerDetailsJson.isBlank();
+    }
+
+    public long getCorrectCount() {
+        return getAnswerDetails().stream().filter(ResultQuestionDetail::isCorrect).count();
+    }
+
+    public int getWrongCount() {
+        return Math.max(0, getAnswerDetails().size() - (int) getCorrectCount());
+    }
     
     public String getBloomLevel() {
         if (score == null) return "N/A";

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
+<html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{fragments/layout}">
@@ -7,18 +7,25 @@
 <body>
 <div layout:fragment="content">
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:28px;flex-wrap:wrap">
     <div>
         <h1 style="font-size:24px;font-weight:800;margin-bottom:4px">Assessment Management</h1>
-        <p style="color:#94a3b8;font-size:14px">Create and manage academic tests and view student results</p>
+        <p style="color:#94a3b8;font-size:14px">Manage both regular course assessments and remedial tests used in Error Management mappings.</p>
     </div>
     <a th:href="@{/assessments/create}" class="primary-button">+ Create Test</a>
 </div>
 <div th:if="${success}" style="padding:14px 20px;border-radius:12px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-weight:600;margin-bottom:20px" th:text="${success}"></div>
 
-<!-- Filters -->
 <article class="chart-card" style="margin-bottom:20px">
     <form method="get" th:action="@{/assessments}" class="filter-form">
+        <div>
+            <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Filter by Type</label>
+            <select name="type" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none">
+                <option value="">All Types</option>
+                <option value="COURSE_ASSESSMENT" th:selected="${selectedType == 'COURSE_ASSESSMENT'}">Course Assessment</option>
+                <option value="REMEDIAL_TEST" th:selected="${selectedType == 'REMEDIAL_TEST'}">Remedial Test</option>
+            </select>
+        </div>
         <div>
             <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Filter by Course</label>
             <select name="courseId" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none">
@@ -28,7 +35,7 @@
         </div>
         <div>
             <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Search</label>
-            <input name="search" th:value="${search}" placeholder="Test title..." style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none;box-sizing:border-box">
+            <input name="search" th:value="${search}" placeholder="Title, description, or course..." style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none;box-sizing:border-box">
         </div>
         <button type="submit" class="primary-button" style="min-height:42px;padding:0 20px;border-radius:10px">Filter</button>
     </form>
@@ -37,7 +44,7 @@
 <article class="chart-card">
     <div class="table-wrapper">
         <table class="data-table">
-            <thead><tr><th>#</th><th>Test Title</th><th>Course</th><th>Duration</th><th>Questions</th><th>Actions</th></tr></thead>
+            <thead><tr><th>#</th><th>Test Title</th><th>Type</th><th>Course</th><th>Duration</th><th>Questions</th><th>Actions</th></tr></thead>
             <tbody>
                 <tr th:each="t,stat : ${tests}">
                     <td style="color:#94a3b8;font-size:13px" th:text="${stat.index+1}">1</td>
@@ -45,11 +52,15 @@
                         <div style="font-weight:700" th:text="${t.title}">Title</div>
                         <div style="font-size:12px;color:#94a3b8" th:text="${t.description}">desc</div>
                     </td>
-                    <td style="font-size:13px" th:text="${t.course?.name}">Course</td>
+                    <td>
+                        <span th:text="${t.assessmentType.name() == 'COURSE_ASSESSMENT' ? 'Course Assessment' : 'Remedial Test'}"
+                              th:style="${t.assessmentType.name() == 'COURSE_ASSESSMENT' ? 'background:#eff6ff;color:#1d4ed8' : 'background:#fff7ed;color:#c2410c'} + ';padding:4px 10px;border-radius:99px;font-size:12px;font-weight:800'">Type</span>
+                    </td>
+                    <td style="font-size:13px" th:text="${t.course != null ? t.course.name : 'N/A'}">Course</td>
                     <td><span style="background:#eff6ff;color:#2563eb;padding:4px 10px;border-radius:99px;font-size:12px;font-weight:700" th:text="${t.duration != null ? t.duration + ' min' : 'N/A'}">60 min</span></td>
                     <td style="font-weight:700;text-align:center" th:text="${questionCounts != null && questionCounts[t.id] != null ? questionCounts[t.id] : 0}">0</td>
                     <td>
-                        <div style="display:flex;gap:8px">
+                        <div style="display:flex;gap:8px;flex-wrap:wrap">
                             <a th:href="@{'/assessments/' + ${t.id} + '/edit'}" style="padding:5px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;color:#374151">Edit</a>
                             <a th:href="@{'/assessments/' + ${t.id} + '/results'}" style="padding:5px 12px;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;font-weight:700;color:#166534">Results</a>
                             <form th:action="@{'/assessments/' + ${t.id} + '/delete'}" method="post" onsubmit="return confirm('Delete this test?')" style="display:inline">
@@ -59,7 +70,7 @@
                     </td>
                 </tr>
                 <tr th:if="${#lists.isEmpty(tests)}">
-                    <td colspan="6" style="text-align:center;color:#94a3b8;padding:60px">No tests found.</td>
+                    <td colspan="7" style="text-align:center;color:#94a3b8;padding:60px">No tests found.</td>
                 </tr>
             </tbody>
         </table>
@@ -69,9 +80,14 @@
 <style>
 .filter-form {
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: 1fr 1fr 1fr auto;
     gap: 14px;
     align-items: end;
+}
+@media (max-width: 920px) {
+    .filter-form {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 @media (max-width: 768px) {
     .filter-form {

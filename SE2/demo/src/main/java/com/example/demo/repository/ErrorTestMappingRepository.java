@@ -9,5 +9,6 @@ import java.util.Optional;
 public interface ErrorTestMappingRepository extends JpaRepository<ErrorTestMapping, Long> {
     Optional<ErrorTestMapping> findByErrorType(ErrorType errorType);
     Optional<ErrorTestMapping> findByErrorTypeId(Long errorTypeId);
+    List<ErrorTestMapping> findByTestId(Long testId);
     List<ErrorTestMapping> findAll();
 }

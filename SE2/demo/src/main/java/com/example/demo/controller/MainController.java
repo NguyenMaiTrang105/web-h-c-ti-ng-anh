@@ -11,6 +11,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Stream;
 
 @Controller
 public class MainController {
@@ -22,11 +23,12 @@ public class MainController {
     private final StudentErrorRepository studentErrorRepository;
     private final StudentResultRepository resultRepository;
     private final QuestionRepository questionRepository;
+    private final ErrorTestMappingRepository errorTestMappingRepository;
 
     public MainController(UserRepository userRepository, CourseRepository courseRepository,
                           EnrollmentRepository enrollmentRepository, TestRepository testRepository,
                           StudentErrorRepository studentErrorRepository, StudentResultRepository resultRepository,
-                          QuestionRepository questionRepository) {
+                          QuestionRepository questionRepository, ErrorTestMappingRepository errorTestMappingRepository) {
         this.userRepository = userRepository;
         this.courseRepository = courseRepository;
         this.enrollmentRepository = enrollmentRepository;
@@ -34,12 +36,13 @@ public class MainController {
         this.studentErrorRepository = studentErrorRepository;
         this.resultRepository = resultRepository;
         this.questionRepository = questionRepository;
+        this.errorTestMappingRepository = errorTestMappingRepository;
     }
 
     @GetMapping("/")
     public String dashboard(Model model, Authentication auth) {
         if (auth == null) return "redirect:/login";
-        
+
         boolean isStudent = hasRole(auth, "ROLE_STUDENT");
         User currentUser = getCurrentUser(auth);
         model.addAttribute("currentUser", currentUser);
@@ -54,12 +57,11 @@ public class MainController {
             return "student/dashboard";
         }
 
-        // Admin/Staff logic
         model.addAttribute("isAdmin", hasRole(auth, "ROLE_ADMIN"));
         model.addAttribute("isStaff", hasRole(auth, "ROLE_ACADEMIC_STAFF"));
         model.addAttribute("pendingEnrollmentCount", enrollmentRepository.countByStatus("PENDING"));
         model.addAttribute("activeTestCount", testRepository.count());
-        
+
         LocalDateTime start = LocalDate.now().atStartOfDay();
         LocalDateTime end = LocalDate.now().atTime(23, 59, 59);
         model.addAttribute("todayErrorCount", studentErrorRepository.countByCreatedAtBetween(start, end));
@@ -75,12 +77,11 @@ public class MainController {
         return "dashboard";
     }
 
-    // --- Student Portal Features (Path prefix ensured) ---
     @GetMapping({"/portal/courses", "/student/courses"})
     public String myCourses(Model model, Authentication auth) {
         User student = getCurrentUser(auth);
         model.addAttribute("currentUser", student);
-        
+
         Map<Long, String> enrollmentStatusMap = new HashMap<>();
         if (student != null) {
             List<Enrollment> enrollments = enrollmentRepository.findByStudent(student);
@@ -92,7 +93,7 @@ public class MainController {
                 }
             }
         }
-        
+
         model.addAttribute("enrollmentStatusMap", enrollmentStatusMap);
         model.addAttribute("allCourses", courseRepository.findAll());
         return "student/courses";
@@ -108,9 +109,9 @@ public class MainController {
                 e.setCourse(c);
                 e.setStatus("PENDING");
                 enrollmentRepository.save(e);
-                ra.addFlashAttribute("success", "Đã gửi yêu cầu đăng ký khóa học " + c.getName());
+                ra.addFlashAttribute("success", "Da gui yeu cau dang ky khoa hoc " + c.getName());
             } else {
-                ra.addFlashAttribute("error", "Bạn đã đăng ký khóa học này rồi.");
+                ra.addFlashAttribute("error", "Ban da dang ky khoa hoc nay roi.");
             }
         });
         return "redirect:/portal/courses";
@@ -120,20 +121,24 @@ public class MainController {
     public String myTests(Model model, Authentication auth) {
         User student = getCurrentUser(auth);
         model.addAttribute("currentUser", student);
-        
-        List<Test> availableTests = new ArrayList<>();
+
+        List<Test> courseAssessments = new ArrayList<>();
+        List<Test> remedialTests = new ArrayList<>();
         if (student != null) {
             List<Enrollment> enrollments = enrollmentRepository.findByStudent(student);
             if (enrollments != null) {
                 for (Enrollment e : enrollments) {
                     if (e != null && "APPROVED".equals(e.getStatus()) && e.getCourse() != null) {
-                        availableTests.addAll(testRepository.findByCourseId(e.getCourse().getId()));
+                        courseAssessments.addAll(testRepository.findByCourseIdAndAssessmentType(e.getCourse().getId(), AssessmentType.COURSE_ASSESSMENT));
                     }
                 }
             }
+            remedialTests = findRecommendedRemedialTests(student);
         }
-        
-        model.addAttribute("tests", availableTests);
+
+        model.addAttribute("tests", mergeDistinctTests(courseAssessments, remedialTests));
+        model.addAttribute("courseAssessments", mergeDistinctTests(courseAssessments, List.of()));
+        model.addAttribute("remedialTests", mergeDistinctTests(remedialTests, List.of()));
         model.addAttribute("results", student != null ? resultRepository.findByStudent(student) : new ArrayList<>());
         return "student/tests";
     }
@@ -142,18 +147,23 @@ public class MainController {
     public String takeTest(@PathVariable Long id, Model model, Authentication auth, RedirectAttributes ra) {
         Optional<Test> testOpt = testRepository.findById(id);
         if (testOpt.isEmpty()) return "redirect:/portal/tests";
-        
+
         User student = getCurrentUser(auth);
         model.addAttribute("currentUser", student);
-        
+
         boolean enrolled = false;
         if (student != null) {
-            enrolled = enrollmentRepository.findByStudentAndCourse(student, testOpt.get().getCourse())
-                .stream().anyMatch(e -> "APPROVED".equals(e.getStatus()));
+            Test test = testOpt.get();
+            if (test.isRemedialTest()) {
+                enrolled = canAccessRemedialTest(student, test);
+            } else {
+                enrolled = enrollmentRepository.findByStudentAndCourse(student, test.getCourse())
+                        .stream().anyMatch(e -> "APPROVED".equals(e.getStatus()));
+            }
         }
-        
+
         if (!enrolled) {
-            ra.addFlashAttribute("error", "Vui lòng đợi Giáo vụ duyệt đăng ký khóa học.");
+            ra.addFlashAttribute("error", "Ban khong co quyen vao bai test nay.");
             return "redirect:/portal/tests";
         }
         model.addAttribute("test", testOpt.get());
@@ -167,17 +177,24 @@ public class MainController {
         if (testOpt.isPresent()) {
             List<Question> questions = questionRepository.findByTestId(id);
             int correct = 0;
+            List<ResultQuestionDetail> details = new ArrayList<>();
+            int questionNumber = 1;
             for (Question q : questions) {
-                String ans = answers.get("q_" + q.getId());
-                if (ans != null && ans.trim().equalsIgnoreCase(q.getCorrectAnswer().trim())) correct++;
+                String ans = normalizeAnswer(answers.get("q_" + q.getId()));
+                boolean isCorrect = ans != null && ans.equalsIgnoreCase(normalizeAnswer(q.getCorrectAnswer()));
+                if (isCorrect) {
+                    correct++;
+                }
+                details.add(buildDetail(q, questionNumber++, ans, isCorrect));
             }
             double score = questions.isEmpty() ? 0 : (double) correct / questions.size() * 10.0;
             StudentResult res = new StudentResult();
             res.setStudent(getCurrentUser(auth));
             res.setTest(testOpt.get());
             res.setScore(score);
+            res.setAnswerDetails(details);
             resultRepository.save(res);
-            ra.addFlashAttribute("success", "Đã nộp bài thành công! Điểm: " + String.format("%.1f", score));
+            ra.addFlashAttribute("success", "Da nop bai thanh cong! Diem: " + String.format("%.1f", score));
         }
         return "redirect:/portal/tests";
     }
@@ -190,8 +207,100 @@ public class MainController {
                 .orElseGet(() -> userRepository.findByEmail(auth.getName()).orElse(null));
     }
 
+    private ResultQuestionDetail buildDetail(Question question, int questionNumber, String studentAnswer, boolean isCorrect) {
+        ResultQuestionDetail detail = new ResultQuestionDetail();
+        detail.setQuestionId(question.getId());
+        detail.setQuestionNumber(questionNumber);
+        detail.setQuestionType(question.getQuestionType().name());
+        detail.setQuestionContent(question.getContent());
+        detail.setCorrectAnswer(question.getCorrectAnswer());
+        detail.setStudentAnswer(studentAnswer != null ? studentAnswer : "");
+        detail.setCorrect(isCorrect);
+        detail.setOptions(Stream.of(
+                        optionLabel("A", question.getOptionA()),
+                        optionLabel("B", question.getOptionB()),
+                        optionLabel("C", question.getOptionC()),
+                        optionLabel("D", question.getOptionD()))
+                .filter(Objects::nonNull)
+                .toList());
+        return detail;
+    }
+
+    private String optionLabel(String key, String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return key + ". " + value;
+    }
+
+    private String normalizeAnswer(String answer) {
+        if (answer == null) {
+            return null;
+        }
+        String normalized = answer.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
     private boolean hasRole(Authentication auth, String role) {
         if (auth == null) return false;
         return auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(role));
+    }
+
+    private boolean canAccessRemedialTest(User student, Test test) {
+        if (student == null || test == null || test.getId() == null) {
+            return false;
+        }
+        Set<Long> studentErrorTypeIds = studentErrorRepository.findByStudent(student).stream()
+                .map(StudentError::getErrorType)
+                .filter(Objects::nonNull)
+                .map(ErrorType::getId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        if (studentErrorTypeIds.isEmpty()) {
+            return false;
+        }
+        return errorTestMappingRepository.findByTestId(test.getId()).stream()
+                .map(ErrorTestMapping::getErrorType)
+                .filter(Objects::nonNull)
+                .map(ErrorType::getId)
+                .anyMatch(studentErrorTypeIds::contains);
+    }
+
+    private List<Test> findRecommendedRemedialTests(User student) {
+        if (student == null) {
+            return new ArrayList<>();
+        }
+        Set<Long> studentErrorTypeIds = studentErrorRepository.findByStudent(student).stream()
+                .map(StudentError::getErrorType)
+                .filter(Objects::nonNull)
+                .map(ErrorType::getId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        if (studentErrorTypeIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return errorTestMappingRepository.findAll().stream()
+                .filter(mapping -> mapping.getErrorType() != null && mapping.getTest() != null)
+                .filter(mapping -> studentErrorTypeIds.contains(mapping.getErrorType().getId()))
+                .map(ErrorTestMapping::getTest)
+                .filter(Test::isRemedialTest)
+                .sorted(Comparator.comparing(Test::getTitle, String.CASE_INSENSITIVE_ORDER))
+                .distinct()
+                .toList();
+    }
+
+    private List<Test> mergeDistinctTests(List<Test> first, List<Test> second) {
+        Map<Long, Test> merged = new LinkedHashMap<>();
+        for (Test test : first) {
+            if (test != null && test.getId() != null) {
+                merged.put(test.getId(), test);
+            }
+        }
+        for (Test test : second) {
+            if (test != null && test.getId() != null) {
+                merged.putIfAbsent(test.getId(), test);
+            }
+        }
+        return new ArrayList<>(merged.values());
     }
 }

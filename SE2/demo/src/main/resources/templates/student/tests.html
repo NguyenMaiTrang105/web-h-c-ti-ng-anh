@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
+<html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{fragments/layout}">
@@ -9,59 +9,110 @@
 
 <div style="margin-bottom:32px">
     <h1 style="font-size:24px;font-weight:900;margin-bottom:6px">My Assessments</h1>
-    <p style="color:#94a3b8;font-size:14px">Assessments available for your enrolled and approved courses.</p>
+    <p style="color:#94a3b8;font-size:14px">Course assessments come from your approved enrollments. Remedial tests are suggested from the error types you are currently struggling with.</p>
 </div>
 
 <div th:if="${error}" style="padding:16px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:12px;margin-bottom:24px;font-weight:700" th:text="${error}"></div>
 <div th:if="${success}" style="padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:12px;margin-bottom:24px;font-weight:700" th:text="${success}"></div>
 
-<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:24px">
-    <article th:each="t : ${tests}" class="chart-card" style="padding:0;overflow:hidden;transition:transform 0.2s;position:relative">
-        <div style="height:120px;background:linear-gradient(135deg,#7c3aed,#2563eb);padding:24px;color:#fff;display:flex;flex-direction:column;justify-content:flex-end">
-            <h3 style="font-size:18px;font-weight:900" th:text="${t.title}">Test Title</h3>
-            <div style="font-size:12px;opacity:0.8" th:text="${t.course.name}">Course Name</div>
+<section style="margin-bottom:36px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+        <div>
+            <h2 style="font-size:20px;font-weight:900;margin:0">Course Assessments</h2>
+            <p style="margin:6px 0 0;color:#94a3b8;font-size:13px">Regular tests published inside your enrolled courses.</p>
         </div>
-        <div style="padding:24px">
-            <div style="display:flex;gap:16px;margin-bottom:24px">
-                <div style="flex:1">
-                    <div style="font-size:10px;text-transform:uppercase;color:#94a3b8;font-weight:800;margin-bottom:4px">Duration</div>
-                    <div style="font-weight:800;font-size:15px;color:#374151" th:text="${t.duration + ' min'}">60 min</div>
+        <span style="padding:6px 12px;border-radius:999px;background:#eef2ff;color:#4338ca;font-size:12px;font-weight:800" th:text="${#lists.size(courseAssessments) + ' tests'}">0 tests</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:24px" th:if="${!#lists.isEmpty(courseAssessments)}">
+        <article th:each="t : ${courseAssessments}" class="chart-card" style="padding:0;overflow:hidden;transition:transform 0.2s;position:relative">
+            <div style="height:120px;background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:24px;color:#fff;display:flex;flex-direction:column;justify-content:flex-end">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+                    <span style="font-size:11px;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;background:rgba(255,255,255,0.16);padding:6px 10px;border-radius:999px">Course Assessment</span>
                 </div>
-                <div style="flex:1">
-                    <div style="font-size:10px;text-transform:uppercase;color:#94a3b8;font-weight:800;margin-bottom:4px">Status</div>
-                    <div style="font-weight:800;font-size:15px;color:#10b981">Available</div>
-                </div>
+                <h3 style="font-size:18px;font-weight:900;margin-top:12px" th:text="${t.title}">Test Title</h3>
+                <div style="font-size:12px;opacity:0.85" th:text="${t.course.name}">Course Name</div>
             </div>
-            
-            <a th:href="@{'/portal/tests/' + ${t.id} + '/take'}" class="primary-button" style="width:100%;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;text-decoration:none">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:8px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                Begin Assessment
-            </a>
-        </div>
-    </article>
-</div>
+            <div style="padding:24px">
+                <div style="display:flex;gap:16px;margin-bottom:24px">
+                    <div style="flex:1">
+                        <div style="font-size:10px;text-transform:uppercase;color:#94a3b8;font-weight:800;margin-bottom:4px">Duration</div>
+                        <div style="font-weight:800;font-size:15px;color:#374151" th:text="${t.duration + ' min'}">60 min</div>
+                    </div>
+                    <div style="flex:1">
+                        <div style="font-size:10px;text-transform:uppercase;color:#94a3b8;font-weight:800;margin-bottom:4px">Status</div>
+                        <div style="font-weight:800;font-size:15px;color:#10b981">Available</div>
+                    </div>
+                </div>
+                <a th:href="@{'/portal/tests/' + ${t.id} + '/take'}" class="primary-button" style="width:100%;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;text-decoration:none">
+                    Begin Assessment
+                </a>
+            </div>
+        </article>
+    </div>
+    <div th:if="${#lists.isEmpty(courseAssessments)}" style="text-align:center;padding:40px;background:#fff;border-radius:24px;border:1px dashed #e2e8f0;color:#94a3b8">
+        No course assessments available yet.
+    </div>
+</section>
 
-<div th:if="${#lists.isEmpty(tests)}" style="text-align:center;padding:80px;background:#fff;border-radius:24px;border:1px dashed #e2e8f0;color:#94a3b8">
-    <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin-bottom:16px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-    <p style="font-weight:800">No assessments available yet.</p>
-    <p style="font-size:12px">Please wait for your enrolled courses to publish a test.</p>
-</div>
+<section style="margin-bottom:40px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+        <div>
+            <h2 style="font-size:20px;font-weight:900;margin:0">Recommended Remedial Tests</h2>
+            <p style="margin:6px 0 0;color:#94a3b8;font-size:13px">These tests are unlocked because your current error records map to them.</p>
+        </div>
+        <span style="padding:6px 12px;border-radius:999px;background:#fff7ed;color:#c2410c;font-size:12px;font-weight:800" th:text="${#lists.size(remedialTests) + ' tests'}">0 tests</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:24px" th:if="${!#lists.isEmpty(remedialTests)}">
+        <article th:each="t : ${remedialTests}" class="chart-card" style="padding:0;overflow:hidden;transition:transform 0.2s;position:relative">
+            <div style="height:120px;background:linear-gradient(135deg,#ea580c,#ef4444);padding:24px;color:#fff;display:flex;flex-direction:column;justify-content:flex-end">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+                    <span style="font-size:11px;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;background:rgba(255,255,255,0.16);padding:6px 10px;border-radius:999px">Remedial Test</span>
+                </div>
+                <h3 style="font-size:18px;font-weight:900;margin-top:12px" th:text="${t.title}">Test Title</h3>
+                <div style="font-size:12px;opacity:0.85" th:text="${t.course.name}">Course Name</div>
+            </div>
+            <div style="padding:24px">
+                <div style="font-size:13px;color:#64748b;margin-bottom:16px" th:text="${t.description}">Description</div>
+                <div style="display:flex;gap:16px;margin-bottom:24px">
+                    <div style="flex:1">
+                        <div style="font-size:10px;text-transform:uppercase;color:#94a3b8;font-weight:800;margin-bottom:4px">Duration</div>
+                        <div style="font-weight:800;font-size:15px;color:#374151" th:text="${t.duration + ' min'}">25 min</div>
+                    </div>
+                    <div style="flex:1">
+                        <div style="font-size:10px;text-transform:uppercase;color:#94a3b8;font-weight:800;margin-bottom:4px">Reason</div>
+                        <div style="font-weight:800;font-size:15px;color:#ea580c">Needs Review</div>
+                    </div>
+                </div>
+                <a th:href="@{'/portal/tests/' + ${t.id} + '/take'}" class="primary-button" style="width:100%;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;text-decoration:none">
+                    Start Remedial Test
+                </a>
+            </div>
+        </article>
+    </div>
+    <div th:if="${#lists.isEmpty(remedialTests)}" style="text-align:center;padding:40px;background:#fff;border-radius:24px;border:1px dashed #e2e8f0;color:#94a3b8">
+        No remedial tests are mapped to your current error types.
+    </div>
+</section>
 
 <h3 style="font-size:20px;font-weight:900;margin:40px 0 20px">Recent Results History</h3>
 <article class="chart-card">
     <table class="data-table">
-        <thead><tr><th>Test</th><th>Score</th><th>Attempt Date</th><th>Status</th></tr></thead>
+        <thead><tr><th>Test</th><th>Type</th><th>Score</th><th>Attempt Date</th><th>Status</th></tr></thead>
         <tbody>
             <tr th:each="r : ${results}">
                 <td style="font-weight:700" th:text="${r.test != null ? r.test.title : 'N/A'}">Test</td>
+                <td>
+                    <span th:text="${r.test != null && r.test.assessmentType.name() == 'REMEDIAL_TEST' ? 'Remedial Test' : 'Course Assessment'}"
+                          th:style="${r.test != null && r.test.assessmentType.name() == 'REMEDIAL_TEST' ? 'background:#fff7ed;color:#c2410c' : 'background:#eef2ff;color:#4338ca'} + ';padding:4px 10px;border-radius:99px;font-size:11px;font-weight:800'">Type</span>
+                </td>
                 <td><span style="font-weight:900;color:#7c3aed;font-size:15px" th:text="${r.score + '/10.0'}">8.5</span></td>
                 <td style="font-size:13px;color:#94a3b8" th:text="${r.submittedAt}">Date</td>
                 <td>
-                    <span th:if="${r.passed}" style="background:#f0fdf4;color:#166534;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:800">✓ PASSED</span>
-                    <span th:unless="${r.passed}" style="background:#fef2f2;color:#991b1b;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:800">✗ FAILED</span>
+                    <span th:if="${r.passed}" style="background:#f0fdf4;color:#166534;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:800">PASSED</span>
+                    <span th:unless="${r.passed}" style="background:#fef2f2;color:#991b1b;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:800">FAILED</span>
                 </td>
             </tr>
-            <tr th:if="${#lists.isEmpty(results)}"><td colspan="4" style="text-align:center;padding:40px;color:#94a3b8">No attempts recorded yet.</td></tr>
+            <tr th:if="${#lists.isEmpty(results)}"><td colspan="5" style="text-align:center;padding:40px;color:#94a3b8">No attempts recorded yet.</td></tr>
         </tbody>
     </table>
 </article>

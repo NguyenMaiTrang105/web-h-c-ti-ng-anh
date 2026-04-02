@@ -17,6 +17,10 @@ public class Test {
 
     private Integer duration; // in minutes
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assessment_type", nullable = false)
+    private AssessmentType assessmentType = AssessmentType.COURSE_ASSESSMENT;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_id", nullable = false)
     private Course course;
@@ -29,6 +33,12 @@ public class Test {
     public void setDescription(String description) { this.description = description; }
     public Integer getDuration() { return duration; }
     public void setDuration(Integer duration) { this.duration = duration; }
+    public AssessmentType getAssessmentType() { return assessmentType; }
+    public void setAssessmentType(AssessmentType assessmentType) { this.assessmentType = assessmentType; }
     public Course getCourse() { return course; }
     public void setCourse(Course course) { this.course = course; }
+
+    public boolean isRemedialTest() {
+        return assessmentType == AssessmentType.REMEDIAL_TEST;
+    }
 }

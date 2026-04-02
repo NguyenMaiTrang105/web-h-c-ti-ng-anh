@@ -1,78 +1,167 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
+<html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{fragments/layout}">
-<head><title>Student Error View</title></head>
+<head>
+    <title>Student Error View</title>
+    <style>
+        .error-page-shell { display: grid; gap: 22px; }
+        .error-filter-card, .error-summary-card, .error-record-card { padding: 24px; border-radius: 24px; background: rgba(255,255,255,0.96); border: 1px solid rgba(148,163,184,0.15); box-shadow: 0 20px 44px rgba(15,23,42,0.06); }
+        .error-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 8px; }
+        .error-filter-grid { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(220px, 1fr) auto auto; gap: 14px; align-items: end; }
+        .control-label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 800; color: #64748b; }
+        .control-input, .control-select { width: 100%; min-height: 48px; border-radius: 14px; border: 1px solid #dbe4f0; background: #fff; padding: 0 14px; outline: none; }
+        .student-highlight { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; align-items: center; }
+        .student-meta { display: flex; align-items: center; gap: 16px; }
+        .student-avatar { width: 58px; height: 58px; border-radius: 18px; background: linear-gradient(135deg, #0f766e 0%, #2563eb 100%); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 900; }
+        .metric-stack { display: flex; gap: 14px; flex-wrap: wrap; }
+        .metric-pill { min-width: 120px; padding: 14px 16px; border-radius: 18px; background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%); }
+        .metric-pill strong { display: block; font-size: 24px; line-height: 1; }
+        .metric-pill span { display: block; margin-top: 6px; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+        .summary-item { padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #fff8f1 0%, #ffffff 100%); border: 1px solid #fed7aa; }
+        .summary-item h3 { margin: 0; font-size: 15px; }
+        .summary-item p { margin: 8px 0 14px; color: #64748b; font-size: 13px; min-height: 36px; }
+        .summary-count { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; font-weight: 800; color: #9a3412; }
+        .student-chip-list { display: flex; gap: 8px; flex-wrap: wrap; }
+        .student-chip { padding: 8px 12px; border-radius: 999px; background: #fff; border: 1px solid #fdba74; color: #9a3412; font-size: 12px; font-weight: 700; }
+        .table-shell { overflow-x: auto; }
+        .error-table { width: 100%; border-collapse: collapse; min-width: 760px; }
+        .error-table th, .error-table td { padding: 16px 14px; border-bottom: 1px solid #eef2f7; text-align: left; vertical-align: top; }
+        .error-table th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+        .error-student-id { font-size: 12px; color: #64748b; font-weight: 800; }
+        .error-empty { text-align: center; padding: 54px 20px; color: #94a3b8; }
+        @media (max-width: 900px) {
+            .error-filter-grid { grid-template-columns: 1fr; }
+            .student-highlight { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 720px) {
+            .error-filter-card, .error-summary-card, .error-record-card { padding: 18px; border-radius: 20px; }
+            .error-header { flex-direction: column; align-items: stretch; }
+            .metric-stack { flex-direction: column; }
+        }
+    </style>
+</head>
 <body>
 <div layout:fragment="content">
-
-<div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
-        <div>
-            <h1 style="font-size:24px;font-weight:800;margin-bottom:4px">Student Error Records</h1>
-            <p style="color:#94a3b8;font-size:14px">Track individual student error history and assigned remediation</p>
-        </div>
-        <a th:href="@{/errors}" class="secondary-button">← Back to Error Types</a>
-    </div>
-
-    <!-- Student Selector -->
-    <article class="chart-card" style="margin-bottom:24px">
-        <form method="get" th:action="@{/errors/students}" style="display:grid;grid-template-columns:1fr auto;gap:14px">
+    <div class="error-page-shell">
+        <div class="error-header">
             <div>
-                <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Select Student</label>
-                <select name="studentId" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none">
-                    <option value="">-- Select a Student --</option>
-                    <option th:each="s : ${students}" th:value="${s.id}" th:selected="${selectedStudent != null and s.id == selectedStudent.id}"
-                            th:text="${(s.fullName != null ? s.fullName : s.username) + ' [' + s.email + ']'}">Student</option>
-                </select>
+                <h1 style="font-size:28px;font-weight:900;margin:0 0 6px">Student Error Records</h1>
+                <p style="margin:0;color:#64748b">Filter by student code, username, or name and review the error mix inside the current result set.</p>
             </div>
-            <div style="align-self:flex-end">
-                <button type="submit" class="primary-button" style="min-height:42px;padding:0 20px;border-radius:10px">Load Records</button>
-            </div>
-        </form>
-    </article>
+            <a th:href="@{/errors}" class="secondary-button">Back to Error Types</a>
+        </div>
 
-    <!-- Student Detail -->
-    <div th:if="${selectedStudent != null}">
-        <!-- Student Card -->
-        <article class="chart-card" style="margin-bottom:20px">
-            <div style="display:flex;align-items:center;gap:20px">
-                <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#7c3aed,#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:800"
-                     th:text="${selectedStudent.fullName != null ? selectedStudent.fullName.substring(0,1).toUpperCase() : 'S'}">S</div>
+        <article class="error-filter-card">
+            <form method="get" th:action="@{/errors/students}" class="error-filter-grid">
                 <div>
-                    <div style="font-weight:800;font-size:16px" th:text="${selectedStudent.fullName != null ? selectedStudent.fullName : selectedStudent.username}">Name</div>
-                    <div style="font-size:13px;color:#94a3b8" th:text="${selectedStudent.email}">email</div>
+                    <label class="control-label">Student Dropdown</label>
+                    <select name="studentId" class="control-select">
+                        <option value="">All students</option>
+                        <option th:each="s : ${students}"
+                                th:value="${s.id}"
+                                th:selected="${selectedStudentId != null and s.id == selectedStudentId}"
+                                th:text="${(s.fullName != null ? s.fullName : s.username) + ' · ID ' + s.id + ' · @' + s.username}">Student</option>
+                    </select>
                 </div>
-                <div style="margin-left:auto;text-align:right">
-                    <div style="font-size:28px;font-weight:800;color:#ef4444" th:text="${#lists.size(studentErrors)}">0</div>
-                    <div style="font-size:12px;color:#94a3b8">Total Errors</div>
+                <div>
+                    <label class="control-label">Search Student</label>
+                    <input type="text" name="search" class="control-input" th:value="${search}" placeholder="ID, username, or full name">
+                </div>
+                <button type="submit" class="primary-button">Apply Filter</button>
+                <a th:href="@{/errors/students}" class="ghost-button">Clear Filter</a>
+            </form>
+        </article>
+
+        <article class="error-filter-card" th:if="${selectedStudent != null}">
+            <div class="student-highlight">
+                <div class="student-meta">
+                    <div class="student-avatar"
+                         th:text="${selectedStudent.fullName != null && !selectedStudent.fullName.isBlank() ? selectedStudent.fullName.substring(0,1).toUpperCase() : selectedStudent.username.substring(0,1).toUpperCase()}">S</div>
+                    <div>
+                        <div style="font-size:18px;font-weight:900" th:text="${selectedStudent.fullName != null ? selectedStudent.fullName : selectedStudent.username}">Student</div>
+                        <div style="color:#64748b" th:text="${'ID ' + selectedStudent.id + ' · @' + selectedStudent.username + ' · ' + selectedStudent.email}">meta</div>
+                    </div>
+                </div>
+                <div class="metric-stack">
+                    <div class="metric-pill">
+                        <strong th:text="${#lists.size(studentErrors)}">0</strong>
+                        <span>Filtered Records</span>
+                    </div>
+                    <div class="metric-pill" style="background:linear-gradient(135deg,#fef2f2 0%,#fff1f2 100%)">
+                        <strong th:text="${#lists.size(errorSummaries)}">0</strong>
+                        <span>Error Types</span>
+                    </div>
                 </div>
             </div>
         </article>
 
-        <!-- Errors Table -->
-        <article class="chart-card">
-            <table class="data-table">
-                <thead><tr><th>#</th><th>Error Type</th><th>Recorded At</th></tr></thead>
-                <tbody>
+        <article class="error-summary-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px">
+                <div>
+                    <h2 style="font-size:20px;font-weight:900;margin:0">Error Summary</h2>
+                    <p style="margin:6px 0 0;color:#64748b">Each block shows which students are affected inside the current filtered result set.</p>
+                </div>
+                <div style="font-size:13px;color:#64748b;font-weight:700" th:text="${#lists.size(errorSummaries) + ' error groups'}">0 error groups</div>
+            </div>
+            <div class="summary-grid" th:if="${!#lists.isEmpty(errorSummaries)}">
+                <article class="summary-item" th:each="summary : ${errorSummaries}">
+                    <h3 th:text="${summary.name}">Error</h3>
+                    <p th:text="${summary.description}">Description</p>
+                    <div class="summary-count">
+                        <span th:text="${summary.totalOccurrences + ' records'}">0 records</span>
+                        <span style="color:#c2410c">•</span>
+                        <span th:text="${summary.affectedStudentCount + ' students'}">0 students</span>
+                    </div>
+                    <div class="student-chip-list">
+                        <span class="student-chip" th:each="student : ${summary.students}" th:text="${student.label + ' (#' + student.id + ')'}">Student</span>
+                    </div>
+                </article>
+            </div>
+            <div class="error-empty" th:if="${#lists.isEmpty(errorSummaries)}">No error data matches the current filter.</div>
+        </article>
+
+        <article class="error-record-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:8px">
+                <div>
+                    <h2 style="font-size:20px;font-weight:900;margin:0">Filtered Records</h2>
+                    <p style="margin:6px 0 0;color:#64748b">The table below stays aligned with the active student dropdown and search filter.</p>
+                </div>
+                <div style="font-size:13px;color:#64748b;font-weight:700" th:text="${#lists.size(studentErrors) + ' rows'}">0 rows</div>
+            </div>
+            <div class="table-shell">
+                <table class="error-table">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Student</th>
+                        <th>Error Type</th>
+                        <th>Recorded At</th>
+                    </tr>
+                    </thead>
+                    <tbody>
                     <tr th:each="se,stat : ${studentErrors}">
-                        <td style="color:#94a3b8;font-size:13px" th:text="${stat.index+1}">1</td>
+                        <td th:text="${stat.index + 1}">1</td>
                         <td>
-                            <div style="font-weight:700" th:text="${se.errorType.name}">Error</div>
-                            <div style="font-size:12px;color:#94a3b8" th:text="${se.errorType.description}">desc</div>
+                            <div style="font-weight:800" th:text="${se.student.fullName != null ? se.student.fullName : se.student.username}">Name</div>
+                            <div class="error-student-id" th:text="${'ID ' + se.student.id + ' · @' + se.student.username}">ID</div>
                         </td>
-                        <td style="font-size:12px;color:#94a3b8" th:text="${#temporals.format(se.createdAt,'dd/MM/yyyy HH:mm')}">Date</td>
+                        <td>
+                            <div style="font-weight:800" th:text="${se.errorType.name}">Error</div>
+                            <div style="font-size:13px;color:#64748b" th:text="${se.errorType.description}">desc</div>
+                        </td>
+                        <td style="font-size:13px;color:#64748b" th:text="${#temporals.format(se.createdAt,'dd/MM/yyyy HH:mm')}">Date</td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(studentErrors)}">
-                        <td colspan="3" style="text-align:center;color:#94a3b8;padding:60px">No errors recorded for this student.</td>
+                        <td colspan="4" class="error-empty">No student error records match the current filter.</td>
                     </tr>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </article>
     </div>
-</div>
-
 </div>
 </body>
 </html>

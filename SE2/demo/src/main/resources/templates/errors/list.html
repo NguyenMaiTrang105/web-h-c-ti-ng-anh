@@ -1,95 +1,169 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
+<html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{fragments/layout}">
-<head><title>Error Management</title></head>
+<head>
+    <title>Error Management</title>
+    <style>
+        .error-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr); gap: 24px; }
+        .error-card { padding: 24px; border-radius: 24px; background: rgba(255,255,255,0.96); border: 1px solid rgba(148,163,184,0.14); box-shadow: 0 18px 42px rgba(15,23,42,0.06); }
+        .toolbar-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 14px; align-items: end; margin-bottom: 20px; }
+        .summary-list { display: grid; gap: 14px; }
+        .summary-row { padding: 18px; border-radius: 20px; background: linear-gradient(180deg, #fffbeb 0%, #fff 100%); border: 1px solid #fde68a; }
+        .summary-stats { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+        .summary-pill { padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid #fcd34d; color: #92400e; font-size: 12px; font-weight: 800; }
+        .student-chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        .student-chip { padding: 8px 11px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid #fdba74; color: #9a3412; font-size: 12px; font-weight: 700; }
+        .table-shell { overflow-x: auto; }
+        .error-table { width: 100%; border-collapse: collapse; min-width: 720px; }
+        .error-table th, .error-table td { padding: 16px 14px; border-bottom: 1px solid #eef2f7; vertical-align: top; text-align: left; }
+        .error-table th { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+        .mapping-badge { display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 12px; font-weight: 800; }
+        .recent-list { display: grid; gap: 12px; }
+        .recent-item { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; align-items: start; padding: 14px; border-radius: 18px; background: #fff7f7; border: 1px solid #fee2e2; }
+        .recent-icon { width: 36px; height: 36px; border-radius: 14px; background: #ef4444; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 900; }
+        .empty-state { text-align: center; padding: 48px 20px; color: #94a3b8; }
+        @media (max-width: 1080px) {
+            .error-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 720px) {
+            .error-card { padding: 18px; border-radius: 20px; }
+            .toolbar-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
 <body>
 <div layout:fragment="content">
-
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
-    <div>
-        <h1 style="font-size:24px;font-weight:800;margin-bottom:4px">Error Taxonomy & Tracking</h1>
-        <p style="color:#94a3b8;font-size:14px">Define error types, assign remedial tests, and track student errors</p>
-    </div>
-    <div style="display:flex;gap:12px">
-        <a th:href="@{/errors/students}" class="secondary-button">View Student Errors</a>
-        <a th:href="@{/errors/create}" class="primary-button">+ Create Error Type</a>
-    </div>
-</div>
-<div th:if="${success}" style="padding:14px 20px;border-radius:12px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-weight:600;margin-bottom:20px" th:text="${success}"></div>
-
-<div style="display:grid;grid-template-columns:1fr 380px;gap:24px">
-    <!-- Error Types Table -->
-    <article class="chart-card">
-        <div style="display:flex;gap:14px;margin-bottom:20px">
-            <form method="get" th:action="@{/errors}" style="flex:1">
-                <input name="search" th:value="${search}" placeholder="Search error types..." style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none;box-sizing:border-box">
-            </form>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:24px;flex-wrap:wrap">
+        <div>
+            <h1 style="font-size:28px;font-weight:900;margin:0 0 6px">Error Taxonomy & Tracking</h1>
+            <p style="margin:0;color:#64748b">Compact taxonomy table, backend-driven error summary, and student-aware filtering without stretching the page width.</p>
         </div>
-        <table class="data-table">
-            <thead><tr><th>#</th><th>Error Type</th><th>Assigned Test</th><th>Actions</th></tr></thead>
-            <tbody>
-                <tr th:each="et,stat : ${errorTypes}">
-                    <td style="color:#94a3b8;font-size:13px" th:text="${stat.index+1}">1</td>
-                    <td>
-                        <div style="font-weight:700" th:text="${et.name}">Name</div>
-                        <div style="font-size:12px;color:#94a3b8" th:text="${et.description}">desc</div>
-                    </td>
-                    <td>
-                        <!-- Mapping check -->
-                        <span th:if="${#lists.isEmpty(mappings)}" style="background:#f1f5f9;color:#64748b;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700">Not Assigned</span>
-                    </td>
-                    <td>
-                        <form th:action="@{'/errors/types/' + ${et.id} + '/delete'}" method="post" onsubmit="return confirm('Delete this error type?')" style="display:inline">
-                            <button style="padding:5px 12px;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;color:#dc2626;background:none;cursor:pointer">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-                <tr th:if="${#lists.isEmpty(errorTypes)}">
-                    <td colspan="4" style="text-align:center;color:#94a3b8;padding:60px">No error types defined yet.</td>
-                </tr>
-            </tbody>
-        </table>
-    </article>
-
-    <!-- Assign Test Panel -->
-    <div style="display:grid;gap:20px;align-content:start">
-        <article class="chart-card">
-            <h3 style="font-size:15px;font-weight:800;margin-bottom:16px">🔗 Assign Remedial Test</h3>
-            <form th:action="@{/errors/mappings/create}" method="post" style="display:grid;gap:14px">
-                <div>
-                    <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Error Type</label>
-                    <select name="errorTypeId" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none">
-                        <option th:each="et : ${errorTypes}" th:value="${et.id}" th:text="${et.name}">Type</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Remedial Test</label>
-                    <select name="testId" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none">
-                        <option th:each="t : ${tests}" th:value="${t.id}" th:text="${t.title + ' (' + (t.course?.name ?: 'General') + ')'}">Test</option>
-                    </select>
-                </div>
-                <button type="submit" class="primary-button" style="width:100%">Create Mapping</button>
-            </form>
-        </article>
-
-        <article class="chart-card">
-            <h3 style="font-size:15px;font-weight:800;margin-bottom:16px">📊 Recent Student Errors</h3>
-            <div th:each="se : ${studentErrors}" class="activity-item" style="margin-bottom:12px">
-                <div class="activity-icon" style="background:#fef2f2;color:#ef4444;width:32px;height:32px;flex-shrink:0">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-                </div>
-                <div>
-                    <div style="font-weight:700;font-size:13px" th:text="${se.student != null ? (se.student.fullName != null ? se.student.fullName : se.student.username) : 'Unknown'}">Student</div>
-                    <div style="font-size:12px;color:#94a3b8" th:text="${se.errorType != null ? se.errorType.name : 'Unknown Error'}">Error</div>
-                </div>
-            </div>
-            <div th:if="${#lists.isEmpty(studentErrors)}" style="text-align:center;color:#94a3b8;font-size:13px;padding:20px">No errors recorded yet.</div>
-        </article>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <a th:href="@{/errors/students}" class="secondary-button">View Student Errors</a>
+            <a th:href="@{/errors/create}" class="primary-button">Create Error Type</a>
+        </div>
     </div>
-</div>
 
+    <div th:if="${success}" style="padding:14px 20px;border-radius:14px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-weight:700;margin-bottom:20px" th:text="${success}"></div>
+
+    <div class="error-grid">
+        <article class="error-card">
+            <form method="get" th:action="@{/errors}" class="toolbar-grid">
+                <div>
+                    <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:800;color:#64748b">Filter Error Types</label>
+                    <input name="search" th:value="${search}" placeholder="Search by error name or description"
+                           style="width:100%;min-height:48px;border-radius:14px;border:1px solid #dbe4f0;padding:0 14px;outline:none">
+                </div>
+                <div>
+                    <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:800;color:#64748b">Filter Affected Students</label>
+                    <input name="studentKeyword" th:value="${studentKeyword}" placeholder="ID, username, or full name"
+                           style="width:100%;min-height:48px;border-radius:14px;border:1px solid #dbe4f0;padding:0 14px;outline:none">
+                </div>
+                <button type="submit" class="primary-button">Apply</button>
+            </form>
+
+            <div class="table-shell">
+                <table class="error-table">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Error Type</th>
+                        <th>Assigned Test</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="et,stat : ${errorTypes}">
+                        <td th:text="${stat.index + 1}">1</td>
+                        <td>
+                            <div style="font-weight:800" th:text="${et.name}">Name</div>
+                            <div style="font-size:13px;color:#64748b" th:text="${et.description}">desc</div>
+                        </td>
+                        <td>
+                            <span class="mapping-badge"
+                                  th:if="${mappingByErrorId.containsKey(et.id)}"
+                                  th:text="${mappingByErrorId.get(et.id).test.title}">Assigned</span>
+                            <span class="mapping-badge" style="background:#f1f5f9;color:#64748b"
+                                  th:unless="${mappingByErrorId.containsKey(et.id)}">Not assigned</span>
+                        </td>
+                        <td>
+                            <form th:action="@{'/errors/types/' + ${et.id} + '/delete'}" method="post" onsubmit="return confirm('Delete this error type?')" style="display:inline">
+                                <button style="padding:8px 12px;border:1px solid #fecaca;border-radius:10px;font-size:12px;font-weight:800;color:#dc2626;background:none;cursor:pointer">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(errorTypes)}">
+                        <td colspan="4" class="empty-state">No error types match the current filter.</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+
+        <div style="display:grid;gap:20px;align-content:start">
+            <article class="error-card">
+                <h2 style="font-size:18px;font-weight:900;margin:0 0 16px">Assign Remedial Test</h2>
+                <form th:action="@{/errors/mappings/create}" method="post" style="display:grid;gap:14px">
+                    <div>
+                        <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:800;color:#64748b">Error Type</label>
+                        <select name="errorTypeId" style="width:100%;min-height:48px;border-radius:14px;border:1px solid #dbe4f0;padding:0 14px;outline:none">
+                            <option th:each="et : ${errorTypes}" th:value="${et.id}" th:text="${et.name}">Type</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:800;color:#64748b">Remedial Test</label>
+                        <select name="testId" style="width:100%;min-height:48px;border-radius:14px;border:1px solid #dbe4f0;padding:0 14px;outline:none">
+                            <option value="">Choose a remedial test</option>
+                            <option th:each="t : ${remedialTests}" th:value="${t.id}" th:text="${t.title + ' (' + (t.course != null ? t.course.name : 'General') + ')'}">Test</option>
+                        </select>
+                        <div style="margin-top:8px;font-size:12px;color:#94a3b8">Only tests created as <strong>Remedial Test</strong> can be mapped here.</div>
+                    </div>
+                    <button type="submit" class="primary-button" style="width:100%">Save Mapping</button>
+                </form>
+            </article>
+
+            <article class="error-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:16px">
+                    <div>
+                        <h2 style="font-size:18px;font-weight:900;margin:0">Error Summary</h2>
+                        <p style="margin:6px 0 0;color:#64748b;font-size:13px">Aggregated in the controller and sorted by impact.</p>
+                    </div>
+                    <div style="font-size:12px;color:#64748b;font-weight:800" th:text="${#lists.size(errorSummaries) + ' groups'}">0 groups</div>
+                </div>
+                <div class="summary-list" th:if="${!#lists.isEmpty(errorSummaries)}">
+                    <article class="summary-row" th:each="summary : ${errorSummaries}">
+                        <div style="font-size:16px;font-weight:900" th:text="${summary.name}">Error</div>
+                        <div style="margin-top:6px;color:#64748b;font-size:13px" th:text="${summary.description}">desc</div>
+                        <div class="summary-stats">
+                            <span class="summary-pill" th:text="${summary.totalOccurrences + ' records'}">0 records</span>
+                            <span class="summary-pill" th:text="${summary.affectedStudentCount + ' students'}">0 students</span>
+                        </div>
+                        <div class="student-chip-list">
+                            <span class="student-chip" th:each="student : ${summary.students}" th:text="${student.label + ' (#' + student.id + ')'}">Student</span>
+                        </div>
+                    </article>
+                </div>
+                <div class="empty-state" th:if="${#lists.isEmpty(errorSummaries)}">No summary data matches the current filters.</div>
+            </article>
+
+            <article class="error-card">
+                <h2 style="font-size:18px;font-weight:900;margin:0 0 16px">Recent Student Errors</h2>
+                <div class="recent-list" th:if="${!#lists.isEmpty(studentErrors)}">
+                    <div class="recent-item" th:each="se : ${studentErrors}">
+                        <div class="recent-icon">!</div>
+                        <div>
+                            <div style="font-weight:800" th:text="${se.student != null ? (se.student.fullName != null ? se.student.fullName : se.student.username) : 'Unknown'}">Student</div>
+                            <div style="font-size:13px;color:#64748b" th:text="${'ID ' + (se.student != null ? se.student.id : '?') + ' · ' + (se.errorType != null ? se.errorType.name : 'Unknown Error')}">meta</div>
+                            <div style="font-size:12px;color:#94a3b8;margin-top:6px" th:text="${#temporals.format(se.createdAt,'dd/MM/yyyy HH:mm')}">Date</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="empty-state" th:if="${#lists.isEmpty(studentErrors)}">No student errors recorded yet.</div>
+            </article>
+        </div>
+    </div>
 </div>
 </body>
 </html>

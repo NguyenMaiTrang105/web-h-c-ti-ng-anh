@@ -1,21 +1,22 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
+<html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{fragments/layout}">
 <head>
     <title>Create Test</title>
     <style>
-        .sticky-actions {
-            position: sticky; bottom: -32px; margin: 0 -32px;
-            padding: 20px 32px; background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(8px); border-top: 1px solid #eff2f7;
-            display: flex; gap: 12px; z-index: 10;
-        }
+        .sticky-actions { position: sticky; bottom: -32px; margin: 0 -32px; padding: 20px 32px; background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); border-top: 1px solid #eff2f7; display: flex; gap: 12px; z-index: 10; }
         .form-container { padding-bottom: 20px; }
         .q-card { border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; position: relative; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-        .mc-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; animation: fadeIn 0.3s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        .mc-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+        .type-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .type-card { border: 1px solid #dbe4f0; border-radius: 18px; padding: 16px; cursor: pointer; background: #fff; transition: all 0.2s ease; }
+        .type-card input { display: none; }
+        .type-card.selected { border-color: #7c3aed; box-shadow: 0 12px 26px rgba(124,58,237,0.12); background: linear-gradient(180deg, #f8f5ff 0%, #fff 100%); }
+        @media (max-width: 768px) {
+            .type-grid, .mc-options { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -24,17 +25,32 @@
 <div class="form-container">
     <div style="margin-bottom:28px">
         <h1 style="font-size:24px;font-weight:800;margin-bottom:4px">Create New Assessment</h1>
-        <p style="color:#94a3b8;font-size:14px">Set up a new test, duration, and question bank</p>
+        <p style="color:#94a3b8;font-size:14px">Create either a course assessment or a remedial test mapped from student error patterns.</p>
     </div>
-    
+
     <div th:if="${error}" style="padding:16px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:12px;margin-bottom:24px;font-weight:600">
         <span th:text="${error}">Error message</span>
     </div>
 
     <form th:action="@{/assessments/create}" method="post" id="testForm">
         <article class="chart-card" style="margin-bottom:20px">
-            <h3 style="font-size:15px;font-weight:800;margin-bottom:20px">📋 General Configuration</h3>
+            <h3 style="font-size:15px;font-weight:800;margin-bottom:20px">Assessment Configuration</h3>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+                <div class="field" style="grid-column: span 2">
+                    <label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:8px">Assessment Type *</label>
+                    <div class="type-grid" id="typeGrid">
+                        <label class="type-card selected" data-type="COURSE_ASSESSMENT">
+                            <input type="radio" name="assessmentType" value="COURSE_ASSESSMENT" checked>
+                            <strong style="display:block;font-size:15px">Course Assessment</strong>
+                            <span style="display:block;margin-top:6px;color:#64748b;font-size:13px">Regular assessment attached to an enrolled course.</span>
+                        </label>
+                        <label class="type-card" data-type="REMEDIAL_TEST">
+                            <input type="radio" name="assessmentType" value="REMEDIAL_TEST">
+                            <strong style="display:block;font-size:15px">Remedial Test</strong>
+                            <span style="display:block;margin-top:6px;color:#64748b;font-size:13px">Special test for recurring mistakes that will be mapped from Error Management.</span>
+                        </label>
+                    </div>
+                </div>
                 <div class="field" style="grid-column: span 2">
                     <label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:8px">Test Title *</label>
                     <input name="title" required placeholder="e.g. Midterm Proficiency Exam" style="width:100%;border:1px solid #e2e8f0;border-radius:12px;padding:12px 16px;font-size:14px;outline:none;box-sizing:border-box">
@@ -53,21 +69,25 @@
                         <option value="">-- Choose a course --</option>
                         <option th:each="c : ${courses}" th:value="${c.id}" th:text="${c.name}">Course</option>
                     </select>
+                    <div style="margin-top:6px;font-size:12px;color:#94a3b8">Remedial tests still keep a course context, but they are assigned through Error Management.</div>
                 </div>
             </div>
         </article>
 
         <article class="chart-card" style="margin-bottom:40px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-                <h3 style="font-size:15px;font-weight:800">✍️ Question Bank (<span id="qCount">0</span>)</h3>
-                <div style="display:flex;gap:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:12px;flex-wrap:wrap">
+                <div>
+                    <h3 style="font-size:15px;font-weight:800;margin:0">Question Bank (<span id="qCount">0</span>)</h3>
+                    <div style="margin-top:6px;color:#94a3b8;font-size:12px">Use the same builder for both course assessments and remedial tests.</div>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
                     <button type="button" onclick="addQuestion('SHORT_ANSWER')" style="padding:10px 16px;background:#fff;border:1px solid #7c3aed;color:#7c3aed;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer">+ Short Answer</button>
                     <button type="button" onclick="addQuestion('MULTIPLE_CHOICE')" style="padding:10px 16px;background:#7c3aed;color:#fff;border:none;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer">+ Multiple Choice</button>
                 </div>
             </div>
-            
+
             <div id="questionsContainer" style="display:grid;gap:16px"></div>
-            
+
             <div id="noQMsg" style="text-align:center;color:#94a3b8;padding:60px;border:2px dashed #e2e8f0;border-radius:24px;background:#fcfcfc">
                 <p style="font-weight:600">Your question bank is empty.</p>
                 <p style="font-size:12px">Choose a question type above to start building.</p>
@@ -75,7 +95,7 @@
         </article>
 
         <div class="sticky-actions">
-            <button type="submit" class="primary-button" style="min-width:160px">🚀 Save & Publish</button>
+            <button type="submit" class="primary-button" style="min-width:160px">Save Assessment</button>
             <a th:href="@{/assessments}" class="secondary-button" style="padding:12px 24px">Cancel</a>
         </div>
     </form>
@@ -83,13 +103,14 @@
 
 <script>
 let qIndex = 0;
+
 function addQuestion(type) {
     const container = document.getElementById('questionsContainer');
     document.getElementById('noQMsg').style.display = 'none';
     const div = document.createElement('div');
     div.className = 'q-card';
     div.id = 'q' + qIndex;
-    
+
     let optionsHtml = '';
     if (type === 'MULTIPLE_CHOICE') {
         optionsHtml = `
@@ -113,7 +134,6 @@ function addQuestion(type) {
             </div>
         `;
     } else {
-        // Need to send empty values so the lists in controller stay aligned by index
         optionsHtml = `
             <input name="optionAs" type="hidden" value="">
             <input name="optionBs" type="hidden" value="">
@@ -126,7 +146,7 @@ function addQuestion(type) {
         <input type="hidden" name="questionTypes" value="${type}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:10px">
-                <span style="background:#f5f3ff;color:#7c3aed;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">Q${qIndex+1}</span>
+                <span style="background:#f5f3ff;color:#7c3aed;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">Q${qIndex + 1}</span>
                 <span style="font-weight:700;font-size:13px;color:#94a3b8">${type === 'MULTIPLE_CHOICE' ? 'MULTIPLE CHOICE' : 'SHORT ANSWER'}</span>
             </div>
             <button type="button" onclick="this.parentElement.parentElement.remove();updateCount()" style="background:#fef2f2;border:none;color:#ef4444;width:28px;height:28px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
@@ -152,9 +172,20 @@ function updateCount() {
     document.getElementById('noQMsg').style.display = c === 0 ? 'block' : 'none';
 }
 
+document.querySelectorAll('.type-card').forEach(card => {
+    card.addEventListener('click', () => {
+        document.querySelectorAll('.type-card').forEach(item => item.classList.remove('selected'));
+        card.classList.add('selected');
+        card.querySelector('input').checked = true;
+    });
+});
+
 document.getElementById('testForm').onsubmit = function() {
     const c = document.getElementById('questionsContainer').children.length;
-    if (c === 0) { alert('Please add at least one question.'); return false; }
+    if (c === 0) {
+        alert('Please add at least one question.');
+        return false;
+    }
     return true;
 };
 </script>

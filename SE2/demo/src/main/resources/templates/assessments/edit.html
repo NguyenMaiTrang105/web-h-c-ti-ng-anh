@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
+<html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{fragments/layout}">
@@ -7,18 +7,25 @@
 <body>
 <div layout:fragment="content">
 
-<div style="max-width:760px">
+<div style="max-width:980px">
     <div style="margin-bottom:28px">
         <h1 style="font-size:24px;font-weight:800;margin-bottom:4px">Edit Assessment</h1>
         <p style="color:#94a3b8;font-size:14px" th:text="'Editing: ' + ${test.title}">Test title</p>
     </div>
     <div th:if="${resultCount > 0}" style="padding:14px 20px;border-radius:12px;background:#fffbeb;border:1px solid #fbbf24;color:#92400e;font-weight:600;margin-bottom:20px">
-        ⚠️ <strong th:text="${resultCount}">0</strong> students have taken this test. Editing questions may affect their results.
+        <strong th:text="${resultCount}">0</strong> students have taken this test. Editing questions may affect their stored result detail snapshots.
     </div>
     <form th:action="@{'/assessments/' + ${test.id} + '/edit'}" method="post" id="testForm">
         <article class="chart-card" style="margin-bottom:20px">
-            <h3 style="font-size:15px;font-weight:800;margin-bottom:20px">📋 Test Information</h3>
+            <h3 style="font-size:15px;font-weight:800;margin-bottom:20px">Assessment Information</h3>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+                <div class="field" style="grid-column: span 2">
+                    <label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:8px">Assessment Type</label>
+                    <select name="assessmentType" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none">
+                        <option th:each="type : ${assessmentTypes}" th:value="${type.name()}" th:selected="${type == test.assessmentType}"
+                                th:text="${type.name() == 'COURSE_ASSESSMENT' ? 'Course Assessment' : 'Remedial Test'}">Type</option>
+                    </select>
+                </div>
                 <div class="field" style="grid-column: span 2">
                     <label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:8px">Test Title *</label>
                     <input name="title" th:value="${test.title}" required style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none;box-sizing:border-box">
@@ -41,25 +48,41 @@
         </article>
 
         <article class="chart-card" style="margin-bottom:20px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-                <h3 style="font-size:15px;font-weight:800">❓ Questions <span id="qCount" style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:99px;font-size:12px">0</span></h3>
-                <button type="button" onclick="addQuestion()" style="padding:8px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer">+ Add Question</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:12px;flex-wrap:wrap">
+                <h3 style="font-size:15px;font-weight:800;margin:0">Questions <span id="qCount" style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:99px;font-size:12px">0</span></h3>
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <button type="button" onclick="addQuestion('SHORT_ANSWER')" style="padding:8px 16px;background:#fff;border:1px solid #7c3aed;color:#7c3aed;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer">+ Short Answer</button>
+                    <button type="button" onclick="addQuestion('MULTIPLE_CHOICE')" style="padding:8px 16px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer">+ Multiple Choice</button>
+                </div>
             </div>
             <div id="questionsContainer" style="display:grid;gap:16px">
                 <div th:each="q,stat : ${questions}" style="border:1px solid #e2e8f0;border-radius:12px;padding:20px;position:relative;background:#fafafa">
+                    <input type="hidden" name="questionTypes" th:value="${q.questionType.name()}">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                        <span style="font-weight:700;font-size:13px;color:#7c3aed" th:text="'Question ' + ${stat.index+1}">Q1</span>
+                        <span style="font-weight:700;font-size:13px;color:#7c3aed" th:text="'Question ' + ${stat.index+1} + ' · ' + ${q.questionType.name()}">Q1</span>
                         <button type="button" onclick="this.parentElement.parentElement.remove();updateCount()" style="background:none;border:none;color:#ef4444;font-size:20px;cursor:pointer">×</button>
                     </div>
                     <div style="display:grid;gap:12px">
                         <textarea name="questionContents" required rows="2" th:text="${q.content}" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;resize:vertical;box-sizing:border-box"></textarea>
+                        <div th:if="${q.questionType.name() == 'MULTIPLE_CHOICE'}" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                            <input name="optionAs" th:value="${q.optionA}" placeholder="Option A" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box">
+                            <input name="optionBs" th:value="${q.optionB}" placeholder="Option B" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box">
+                            <input name="optionCs" th:value="${q.optionC}" placeholder="Option C" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box">
+                            <input name="optionDs" th:value="${q.optionD}" placeholder="Option D" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box">
+                        </div>
+                        <div th:if="${q.questionType.name() != 'MULTIPLE_CHOICE'}">
+                            <input name="optionAs" type="hidden" value="">
+                            <input name="optionBs" type="hidden" value="">
+                            <input name="optionCs" type="hidden" value="">
+                            <input name="optionDs" type="hidden" value="">
+                        </div>
                         <input name="correctAnswers" th:value="${q.correctAnswer}" placeholder="Correct answer..." style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box">
                     </div>
                 </div>
             </div>
         </article>
 
-        <div style="display:flex;gap:12px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
             <button type="submit" class="primary-button">Save Assessment</button>
             <a th:href="@{/assessments}" class="secondary-button">Cancel</a>
         </div>
@@ -70,13 +93,28 @@ let qIndex = document.getElementById('questionsContainer').children.length;
 function updateCount() {
     document.getElementById('qCount').textContent = document.getElementById('questionsContainer').children.length;
 }
-function addQuestion() {
+function addQuestion(type) {
     const container = document.getElementById('questionsContainer');
     const div = document.createElement('div');
     div.style.cssText = 'border:1px solid #e2e8f0;border-radius:12px;padding:20px;position:relative;background:#fafafa';
-    div.innerHTML = \`<div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-weight:700;font-size:13px;color:#7c3aed">Question \${qIndex+1}</span><button type="button" onclick="this.parentElement.parentElement.remove();updateCount()" style="background:none;border:none;color:#ef4444;font-size:20px;cursor:pointer">×</button></div>
-    <div style="display:grid;gap:12px"><textarea name="questionContents" required rows="2" placeholder="Question content..." style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;resize:vertical;box-sizing:border-box"></textarea>
-    <input name="correctAnswers" placeholder="Correct answer..." style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box"></div>\`;
+    const options = type === 'MULTIPLE_CHOICE'
+        ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <input name="optionAs" placeholder="Option A" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box">
+                <input name="optionBs" placeholder="Option B" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box">
+                <input name="optionCs" placeholder="Option C" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box">
+                <input name="optionDs" placeholder="Option D" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box">
+           </div>`
+        : `<input name="optionAs" type="hidden" value="">
+           <input name="optionBs" type="hidden" value="">
+           <input name="optionCs" type="hidden" value="">
+           <input name="optionDs" type="hidden" value="">`;
+    div.innerHTML = `<input type="hidden" name="questionTypes" value="${type}">
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-weight:700;font-size:13px;color:#7c3aed">Question ${qIndex+1} · ${type}</span><button type="button" onclick="this.parentElement.parentElement.remove();updateCount()" style="background:none;border:none;color:#ef4444;font-size:20px;cursor:pointer">×</button></div>
+    <div style="display:grid;gap:12px">
+        <textarea name="questionContents" required rows="2" placeholder="Question content..." style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;resize:vertical;box-sizing:border-box"></textarea>
+        ${options}
+        <input name="correctAnswers" placeholder="Correct answer..." style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;outline:none;box-sizing:border-box">
+    </div>`;
     container.appendChild(div);
     qIndex++;
     updateCount();
